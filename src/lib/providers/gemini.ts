@@ -13,7 +13,7 @@ import { sniffImageMime } from "@/lib/providers/sniff";
 
 // Nano Banana 2 (preview) — per ai.google.dev/gemini-api/docs/models.
 const MODEL_ID = "gemini-3.1-flash-image-preview";
-const REQUEST_TIMEOUT_MS = 120_000;
+const REQUEST_TIMEOUT_MS = 2_147_483_647;
 
 function endpoint(apiKey: string): string {
   return `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${encodeURIComponent(apiKey)}`;

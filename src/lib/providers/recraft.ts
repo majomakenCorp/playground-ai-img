@@ -16,7 +16,7 @@ import { sniffImageMime } from "@/lib/providers/sniff";
 const RECRAFT_BASE = "https://external.api.recraft.ai/v1";
 const RECRAFT_ENDPOINT = `${RECRAFT_BASE}/images/generations`;
 const RECRAFT_USER_ENDPOINT = `${RECRAFT_BASE}/users/me`;
-const REQUEST_TIMEOUT_MS = 120_000;
+const REQUEST_TIMEOUT_MS = 2_147_483_647;
 
 // Full model list per https://www.recraft.ai/docs/api-reference/endpoints
 const MODELS = [
