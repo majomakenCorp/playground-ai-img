@@ -1,0 +1,58 @@
+# AI Playground — full stack (Next.js + MongoDB).
+# Bring up:    docker compose up -d --build
+# Tail logs:   docker compose logs -f app
+# Tear down:   docker compose down              (preserves volumes)
+# Wipe data:   docker compose down -v           (DESTRUCTIVE — drops Mongo data)
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: playground-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_APP_USERNAME: ${MONGO_APP_USERNAME}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
+    volumes:
+      - mongo_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks: [playground]
+    # No `ports:` — Mongo is only reachable from the `app` container on the
+    # private `playground` network. Add `ports: ["27017:27017"]` here if you
+    # need a host-side GUI; do not commit that change.
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: playground-app
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "${HOST_PORT:-3030}:3000"
+    volumes:
+      - ./generate-images:/app/generate-images
+    networks: [playground]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  mongo_data:
+
+networks:
+  playground:
+    driver: bridge
