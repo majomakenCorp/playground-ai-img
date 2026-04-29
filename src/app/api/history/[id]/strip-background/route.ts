@@ -8,7 +8,7 @@ import {
 } from "@/lib/storage/history";
 import {
   readImageBytes,
-  resolveImagePath,
+  resolveImage,
   writeImage,
 } from "@/lib/storage/images";
 import { stripFullCanvasBackground } from "@/lib/storage/svg";
@@ -55,7 +55,7 @@ export async function POST(
     );
   }
 
-  const resolved = await resolveImagePath(parsed.data);
+  const resolved = await resolveImage(parsed.data);
   if (!resolved) {
     return NextResponse.json({ error: "file_not_found" }, { status: 404 });
   }

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { createReadStream } from "node:fs";
-import { Readable } from "node:stream";
-import { resolveImagePath } from "@/lib/storage/images";
+import { readImageBytes, resolveImage } from "@/lib/storage/images";
 import { UuidV7Schema } from "@/lib/validation/schemas";
 
 const ALLOWED_VARIANTS = new Set(["transparent"]);
@@ -27,15 +25,20 @@ export async function GET(
     variant = rawVariant;
   }
 
-  const resolved = await resolveImagePath(parsed.data, variant);
+  const resolved = await resolveImage(parsed.data, variant);
   if (!resolved) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const nodeStream = createReadStream(resolved.full);
-  const webStream = Readable.toWeb(nodeStream) as ReadableStream<Uint8Array>;
+  let bytes: Buffer;
+  try {
+    bytes = await readImageBytes(resolved.filename);
+  } catch (err) {
+    console.error("[images] read failed", err);
+    return NextResponse.json({ error: "read_failed" }, { status: 500 });
+  }
 
-  return new Response(webStream, {
+  return new Response(new Uint8Array(bytes), {
     status: 200,
     headers: {
       "Content-Type": resolved.mime,

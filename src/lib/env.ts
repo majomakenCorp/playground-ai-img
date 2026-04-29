@@ -6,7 +6,7 @@ const EnvSchema = z.object({
   AUTH_SECRET: z
     .string()
     .min(32, "AUTH_SECRET must be at least 32 characters"),
-  APP_ORIGIN: z.string().url("APP_ORIGIN must be a valid URL"),
+  APP_ORIGIN: z.string().url("APP_ORIGIN must be a valid URL").optional(),
 
   GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
   RECRAFT_API_KEY: z.string().min(1, "RECRAFT_API_KEY is required"),
@@ -25,6 +25,11 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
 
   IMAGES_DIR: z.string().default("./generate-images"),
+
+  R2_ENDPOINT: z.string().url().optional(),
+  R2_BUCKET: z.string().min(1).optional(),
+  R2_ACCESS_KEY_ID: z.string().min(1).optional(),
+  R2_SECRET_ACCESS_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
