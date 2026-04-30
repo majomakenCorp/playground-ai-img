@@ -21,3 +21,66 @@ export const HistoryQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(50),
   before: z.string().datetime().optional(),
 });
+
+const trimmed = (max: number) => z.string().trim().max(max);
+
+export const BrandBriefFormSchema = z.object({
+  basics: z.object({
+    brandName: trimmed(120).min(1),
+    sector: trimmed(80).min(1),
+    projectType: z.enum(["new", "redesign", "extension"]),
+  }),
+  core: z.object({
+    purpose: trimmed(140),
+    promise: trimmed(140),
+  }),
+  feel: z.object({
+    seriousPlayful: z.number().int().min(0).max(100),
+    warmClinical: z.number().int().min(0).max(100),
+    traditionalAvantgarde: z.number().int().min(0).max(100),
+    understatedExpressive: z.number().int().min(0).max(100),
+    refinedRaw: z.number().int().min(0).max(100),
+  }),
+  character: z.object({
+    primaryArchetype: trimmed(40).min(1),
+    secondaryArchetype: trimmed(40).nullable(),
+  }),
+  audience: z.object({
+    ageMin: z.number().int().min(16).max(99),
+    ageMax: z.number().int().min(16).max(99),
+    drivers: z.array(trimmed(80)).max(12),
+    lifeMoment: trimmed(200),
+  }),
+  voice: z.object({
+    tonePositive: trimmed(60).min(1),
+    toneNegative: trimmed(60).min(1),
+  }),
+  visual: z.object({
+    aesthetics: z.array(trimmed(60)).max(3),
+    palette: trimmed(60).min(1),
+    typography: trimmed(120).min(1),
+  }),
+  exclusions: z.object({
+    cliches: z.array(trimmed(80)).max(20),
+    admire: z.array(trimmed(120)).max(3),
+    differentiate: z.array(trimmed(120)).max(3),
+  }),
+});
+export type BrandBriefForm = z.infer<typeof BrandBriefFormSchema>;
+
+export const CreateBrandBriefSchema = z.object({
+  formData: BrandBriefFormSchema,
+});
+
+export const SystemPromptInputSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  name: z.string().trim().min(1).max(80),
+  content: z.string().trim().min(1).max(20000),
+});
+export type SystemPromptInput = z.infer<typeof SystemPromptInputSchema>;
+
+export const SystemPromptPatchSchema = SystemPromptInputSchema.partial();
+
+export const GenerateBriefSchema = z.object({
+  systemPromptId: UuidV7Schema,
+});
