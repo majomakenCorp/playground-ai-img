@@ -1,11 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ProviderSelect } from "@/components/playground/ProviderSelect";
 import { ProviderOptions } from "@/components/playground/ProviderOptions";
 import { PromptForm } from "@/components/playground/PromptForm";
 import { ResultPanel } from "@/components/playground/ResultPanel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export interface ProviderOptionChoiceClient {
   value: string;
@@ -96,6 +104,12 @@ export interface GenerateResult {
   createdAt: string;
 }
 
+interface SystemPromptItem {
+  id: string;
+  title: string;
+  name: string;
+}
+
 export function Playground({ providers }: { providers: ProviderOption[] }) {
   const [providerId, setProviderId] = useState(providers[0]?.id ?? "");
   const [optionsByProvider, setOptionsByProvider] = useState<
@@ -104,6 +118,19 @@ export function Playground({ providers }: { providers: ProviderOption[] }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerateResult | null>(null);
+
+  const [systemPrompts, setSystemPrompts] = useState<SystemPromptItem[]>([]);
+  const [useSystemPrompt, setUseSystemPrompt] = useState(false);
+  const [systemPromptId, setSystemPromptId] = useState("");
+
+  useEffect(() => {
+    fetch("/api/system-prompts")
+      .then((r) => r.json())
+      .then((data: { items?: SystemPromptItem[] }) => {
+        setSystemPrompts(data.items ?? []);
+      })
+      .catch(() => {});
+  }, []);
 
   const currentProvider = useMemo(
     () => providers.find((p) => p.id === providerId),
@@ -150,18 +177,25 @@ export function Playground({ providers }: { providers: ProviderOption[] }) {
         if (v !== undefined && v !== "") submittedOptions[field.id] = v;
       }
 
+      const body: Record<string, unknown> = {
+        providerId,
+        prompt,
+        options: submittedOptions,
+      };
+      if (useSystemPrompt && systemPromptId) {
+        body.systemPromptId = systemPromptId;
+      }
+
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          providerId,
-          prompt,
-          options: submittedOptions,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError((body as { error?: string }).error ?? `error_${res.status}`);
+        const bodyJson = await res.json().catch(() => ({}));
+        setError(
+          (bodyJson as { error?: string }).error ?? `error_${res.status}`,
+        );
         return;
       }
       const data = (await res.json()) as GenerateResult;
@@ -169,8 +203,10 @@ export function Playground({ providers }: { providers: ProviderOption[] }) {
       window.dispatchEvent(
         new CustomEvent("history:append", { detail: data }),
       );
-    } catch {
-      setError("network_error");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[generate] client error:", msg, err);
+      setError(`network_error: ${msg}`);
     } finally {
       setPending(false);
     }
@@ -198,7 +234,57 @@ export function Playground({ providers }: { providers: ProviderOption[] }) {
           {describeOutput(currentProvider.outputFormat, currentOptions)}
         </p>
       ) : null}
-      <PromptForm onSubmit={onSubmit} disabled={pending || !providerId} />
+
+      <div className="flex flex-col gap-3">
+        <label className="flex items-center gap-2 cursor-pointer w-fit">
+          <input
+            type="checkbox"
+            checked={useSystemPrompt}
+            onChange={(e) => {
+              setUseSystemPrompt(e.target.checked);
+              if (!e.target.checked) setSystemPromptId("");
+            }}
+            disabled={pending}
+            className="h-4 w-4 rounded border-border accent-primary"
+          />
+          <span className="text-sm font-medium">Use system prompt</span>
+        </label>
+
+        {useSystemPrompt && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="system-prompt-select">System prompt</Label>
+            {systemPrompts.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No system prompts saved yet. Create one in the System Prompts
+                section.
+              </p>
+            ) : (
+              <Select
+                value={systemPromptId}
+                onValueChange={setSystemPromptId}
+                disabled={pending}
+              >
+                <SelectTrigger id="system-prompt-select">
+                  <SelectValue placeholder="Select a system prompt…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {systemPrompts.map((sp) => (
+                    <SelectItem key={sp.id} value={sp.id}>
+                      {sp.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
+      </div>
+
+      <PromptForm
+        onSubmit={onSubmit}
+        disabled={pending || !providerId}
+        providerId={providerId}
+      />
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>

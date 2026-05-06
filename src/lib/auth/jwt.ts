@@ -3,7 +3,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "@/lib/env";
 
 const HEADER = base64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-const SEVEN_DAYS_S = 60 * 60 * 24 * 7;
+// 10 years — single-tenant playground, no rotation needed.
+const TEN_YEARS_S = 60 * 60 * 24 * 365 * 10;
 
 export interface SessionPayload {
   sub: "playground";
@@ -13,7 +14,7 @@ export interface SessionPayload {
 
 export function signSession(
   partial: Pick<SessionPayload, "sub">,
-  ttlSeconds: number = SEVEN_DAYS_S,
+  ttlSeconds: number = TEN_YEARS_S,
 ): string {
   const now = Math.floor(Date.now() / 1000);
   const payload: SessionPayload = {
@@ -84,4 +85,4 @@ function base64urlBuffer(buf: Buffer): string {
 }
 
 export const SESSION_COOKIE_NAME = "pg_session";
-export const SESSION_TTL_SECONDS = SEVEN_DAYS_S;
+export const SESSION_TTL_SECONDS = TEN_YEARS_S;

@@ -3,6 +3,9 @@ export type ProviderId = "gemini-nano-banana-2" | "recraft";
 export interface GenerateInput {
   prompt: string;
   options?: Record<string, string>;
+  /** Pre-fetched system prompt content. Providers that support it apply it as
+   *  a system instruction separate from the user prompt. */
+  systemPrompt?: string;
 }
 
 export interface TokenUsage {

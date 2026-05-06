@@ -11,12 +11,18 @@ import type {
 import { ProviderError } from "@/lib/providers/errors";
 import { sniffImageMime } from "@/lib/providers/sniff";
 
-// Nano Banana 2 (preview) — per ai.google.dev/gemini-api/docs/models.
-const MODEL_ID = "gemini-3.1-flash-image-preview";
 const REQUEST_TIMEOUT_MS = 2_147_483_647;
 
-function endpoint(apiKey: string): string {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${encodeURIComponent(apiKey)}`;
+const GEMINI_MODELS = [
+  "gemini-3.1-flash-image-preview",
+  "nano-banana-pro-preview",
+  "gemini-3-pro-image-preview",
+] as const;
+type GeminiModel = (typeof GEMINI_MODELS)[number];
+const DEFAULT_MODEL: GeminiModel = "gemini-3.1-flash-image-preview";
+
+function endpoint(apiKey: string, modelId: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${encodeURIComponent(apiKey)}`;
 }
 
 // Per docs: 14 supported aspect ratios.
@@ -84,6 +90,28 @@ export class GeminiProvider implements ImageProvider {
   };
 
   readonly optionFields: ProviderOptionField[] = [
+    {
+      id: "model_id",
+      label: "Model",
+      defaultValue: DEFAULT_MODEL,
+      choices: [
+        {
+          value: "gemini-3.1-flash-image-preview",
+          label: "Flash (Nano Banana 2)",
+          description: "Faster and cheaper. Good for most use cases.",
+        },
+        {
+          value: "nano-banana-pro-preview",
+          label: "Nano Banana Pro",
+          description: "Pro variant of Nano Banana. Higher quality, slower.",
+        },
+        {
+          value: "gemini-3-pro-image-preview",
+          label: "Gemini 3 Pro Image",
+          description: "Gemini 3 Pro image generation model.",
+        },
+      ],
+    },
     {
       id: "aspect_ratio",
       label: "Aspect ratio",
@@ -157,6 +185,7 @@ export class GeminiProvider implements ImageProvider {
   constructor(private readonly apiKey: string) {}
 
   async generate(input: GenerateInput): Promise<GenerateOutput> {
+    const modelId = pick(input.options?.model_id, GEMINI_MODELS, DEFAULT_MODEL);
     const aspectRatio = pick(
       input.options?.aspect_ratio,
       ASPECT_RATIOS,
@@ -181,7 +210,7 @@ export class GeminiProvider implements ImageProvider {
     const responseModalities =
       modality === "TEXT_AND_IMAGE" ? ["TEXT", "IMAGE"] : ["IMAGE"];
 
-    const body = {
+    const body: Record<string, unknown> = {
       contents: [{ role: "user", parts: [{ text: input.prompt }] }],
       generationConfig: {
         responseModalities,
@@ -189,13 +218,16 @@ export class GeminiProvider implements ImageProvider {
         thinkingConfig: { thinkingLevel },
       },
     };
+    if (input.systemPrompt) {
+      body.system_instruction = { parts: [{ text: input.systemPrompt }] };
+    }
 
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
 
     let res: Response;
     try {
-      res = await fetch(endpoint(this.apiKey), {
+      res = await fetch(endpoint(this.apiKey, modelId), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -263,8 +295,8 @@ export class GeminiProvider implements ImageProvider {
     };
 
     const metadata: Record<string, unknown> = {
-      source: "gemini-3.1",
-      model: MODEL_ID,
+      source: "gemini",
+      model: modelId,
       finishReason: candidate?.finishReason ?? null,
       aspectRatio,
       imageSize,
@@ -295,7 +327,7 @@ function pick<T extends string>(
 
 function classifyHttpError(status: number) {
   if (status === 401 || status === 403) return "auth" as const;
-  if (status === 429) return "rate_limit" as const;
+  if (status === 429 || status === 503) return "rate_limit" as const;
   if (status === 400) return "invalid_request" as const;
   return "upstream" as const;
 }

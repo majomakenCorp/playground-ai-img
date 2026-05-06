@@ -8,6 +8,7 @@ import { extForMime, writeImage } from "@/lib/storage/images";
 import { sniffImageMime } from "@/lib/providers/sniff";
 import { convertRaster, isRasterFormat } from "@/lib/storage/convert";
 import { insertHistory } from "@/lib/storage/history";
+import { getSystemPrompt } from "@/lib/storage/system-prompts";
 import { uuidV7 } from "@/lib/uuid";
 
 export async function POST(req: Request) {
@@ -43,11 +44,29 @@ export async function POST(req: Request) {
     );
   }
 
+  // Recraft's API caps prompts at 4000 characters.
+  if (parsed.data.providerId === "recraft" && parsed.data.prompt.length > 4000) {
+    return NextResponse.json(
+      { error: "prompt_too_long", detail: "Recraft prompts must be ≤ 4000 characters." },
+      { status: 400 },
+    );
+  }
+
+  let systemPromptContent: string | undefined;
+  if (parsed.data.systemPromptId) {
+    const sp = await getSystemPrompt(parsed.data.systemPromptId);
+    if (!sp) {
+      return NextResponse.json({ error: "system_prompt_not_found" }, { status: 400 });
+    }
+    systemPromptContent = sp.content;
+  }
+
   let result;
   try {
     result = await provider.generate({
       prompt: parsed.data.prompt,
       options: parsed.data.options,
+      systemPrompt: systemPromptContent,
     });
   } catch (err) {
     if (err instanceof ProviderError) {
