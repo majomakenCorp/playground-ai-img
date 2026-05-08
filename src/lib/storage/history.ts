@@ -8,7 +8,14 @@ export interface HistoryVariant {
   createdAt: string;
 }
 
-export type HistoryVariantKind = "transparent";
+export type HistoryVariantKind = "transparent" | "vector";
+
+export const VARIANT_KINDS: readonly HistoryVariantKind[] = [
+  "transparent",
+  "vector",
+] as const;
+
+export type HistoryParentRole = "quadrant";
 
 export interface HistoryRecord {
   id: string;
@@ -22,6 +29,10 @@ export interface HistoryRecord {
   rawUsage: unknown;
   providerMetadata: Record<string, unknown> | null;
   variants: Partial<Record<HistoryVariantKind, HistoryVariant>> | null;
+  parentId: string | null;
+  parentRole: HistoryParentRole | null;
+  quadrantIndex: number | null;
+  childIds: string[] | null;
   createdAt: string;
 }
 
@@ -36,6 +47,9 @@ export interface InsertHistoryInput {
   totalTokens: number;
   rawUsage: unknown;
   providerMetadata: Record<string, unknown> | null;
+  parentId?: string | null;
+  parentRole?: HistoryParentRole | null;
+  quadrantIndex?: number | null;
 }
 
 export async function insertHistory(
@@ -53,6 +67,9 @@ export async function insertHistory(
     totalTokens: input.totalTokens,
     rawUsage: input.rawUsage,
     providerMetadata: input.providerMetadata,
+    parentId: input.parentId ?? null,
+    parentRole: input.parentRole ?? null,
+    quadrantIndex: input.quadrantIndex ?? null,
   });
   return toRecord(doc.toObject());
 }
@@ -62,7 +79,14 @@ export async function listHistory(args: {
   before?: Date;
 }): Promise<HistoryRecord[]> {
   await connectMongo();
-  const filter = args.before ? { createdAt: { $lt: args.before } } : {};
+  // Sidebar feed shows top-level images only; quadrants are surfaced in the
+  // dedicated postprocesado view instead.
+  const filter: Record<string, unknown> = {
+    $or: [{ parentId: null }, { parentId: { $exists: false } }],
+  };
+  if (args.before) {
+    filter.createdAt = { $lt: args.before };
+  }
   const docs = await History.find(filter)
     .sort({ createdAt: -1 })
     .limit(args.limit)
@@ -92,7 +116,11 @@ interface AggregateRow {
 
 export async function aggregateUsage(): Promise<UsageTotal[]> {
   await connectMongo();
+  // Quadrants don't call any provider — exclude them so they don't pollute
+  // the per-provider totals (their token counts are 0 anyway, but their row
+  // counts would inflate "count").
   const rows = await History.aggregate<AggregateRow>([
+    { $match: { $or: [{ parentId: null }, { parentId: { $exists: false } }] } },
     {
       $group: {
         _id: "$providerId",
@@ -123,6 +151,66 @@ export async function getHistory(id: string): Promise<HistoryRecord | null> {
   return doc ? toRecord(doc) : null;
 }
 
+export async function findChildren(
+  parentId: string,
+  role: HistoryParentRole = "quadrant",
+): Promise<HistoryRecord[]> {
+  await connectMongo();
+  const docs = await History.find({ parentId, parentRole: role })
+    .sort({ quadrantIndex: 1 })
+    .lean();
+  return docs.map(toRecord);
+}
+
+export interface PostprocesadoGroup {
+  parent: HistoryRecord;
+  quadrants: HistoryRecord[];
+}
+
+/**
+ * Returns groups whose parent has at least one quadrant child. Ordered by
+ * the parent's createdAt (newest first). Cursor pagination is on the parent
+ * createdAt, so a `before` cursor walks backwards in time.
+ */
+export async function findPostprocesado(args: {
+  limit: number;
+  before?: Date;
+}): Promise<PostprocesadoGroup[]> {
+  await connectMongo();
+  const matchParent: Record<string, unknown> = {
+    childIds: { $exists: true, $ne: [] },
+  };
+  if (args.before) {
+    matchParent.createdAt = { $lt: args.before };
+  }
+  const parents = await History.find(matchParent)
+    .sort({ createdAt: -1 })
+    .limit(args.limit)
+    .lean();
+  if (parents.length === 0) return [];
+
+  const parentIds = parents.map((p) => p._id);
+  const children = await History.find({
+    parentId: { $in: parentIds },
+    parentRole: "quadrant",
+  })
+    .sort({ parentId: 1, quadrantIndex: 1 })
+    .lean();
+
+  const byParent = new Map<string, HistoryRecord[]>();
+  for (const c of children) {
+    const rec = toRecord(c);
+    const arr = byParent.get(rec.parentId!) ?? [];
+    arr.push(rec);
+    byParent.set(rec.parentId!, arr);
+  }
+
+  return parents.map((p) => ({
+    parent: toRecord(p),
+    quadrants: byParent.get(p._id) ?? [],
+  }));
+}
+
 export async function setVariant(
   id: string,
   kind: HistoryVariantKind,
@@ -141,11 +229,23 @@ export async function setVariant(
   );
 }
 
+export async function setChildIds(
+  parentId: string,
+  childIds: string[],
+): Promise<void> {
+  await connectMongo();
+  await History.updateOne({ _id: parentId }, { $set: { childIds } });
+}
+
 function toRecord(
   doc: HistoryDoc & {
     createdAt?: Date | string;
     providerMetadata?: Record<string, unknown> | null;
     variants?: Partial<Record<HistoryVariantKind, HistoryVariant>> | null;
+    parentId?: string | null;
+    parentRole?: HistoryParentRole | null;
+    quadrantIndex?: number | null;
+    childIds?: string[] | null;
   },
 ): HistoryRecord {
   const createdAt =
@@ -164,6 +264,10 @@ function toRecord(
     rawUsage: doc.rawUsage,
     providerMetadata: doc.providerMetadata ?? null,
     variants: doc.variants ?? null,
+    parentId: doc.parentId ?? null,
+    parentRole: doc.parentRole ?? null,
+    quadrantIndex: doc.quadrantIndex ?? null,
+    childIds: doc.childIds ?? null,
     createdAt,
   };
 }

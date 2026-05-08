@@ -57,6 +57,7 @@ export default async function HistoryDetailPage({
             imageFilename={record.imageFilename}
             mimeType={record.mimeType}
             transparentVariant={record.variants?.transparent ?? null}
+            alreadySplit={(record.childIds?.length ?? 0) === 4}
           />
 
           <section className="flex flex-col gap-2">

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Eraser } from "lucide-react";
+import { Download, Eraser, Grid2x2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -15,30 +15,39 @@ export interface VariantInfo {
 const TRANSPARENT_CHECKER_BG =
   "bg-[length:16px_16px] bg-[conic-gradient(at_50%_50%,#e5e7eb_25%,transparent_0,transparent_50%,#e5e7eb_0,#e5e7eb_75%,transparent_0)]";
 
+const RASTER_MIMES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+
+const BG_STRIP_MIMES = new Set([
+  "image/svg+xml",
+  ...RASTER_MIMES,
+]);
+
 export function ImageVariants({
   id,
   prompt,
   imageFilename,
   mimeType,
   transparentVariant,
+  alreadySplit,
 }: {
   id: string;
   prompt: string;
   imageFilename: string;
   mimeType: string;
   transparentVariant: VariantInfo | null;
+  alreadySplit: boolean;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const [splitting, setSplitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const SUPPORTS_BG_STRIP = new Set([
-    "image/svg+xml",
-    "image/png",
-    "image/jpeg",
-    "image/webp",
-  ]);
-  const supportsBgStrip = SUPPORTS_BG_STRIP.has(mimeType);
+  const supportsBgStrip = BG_STRIP_MIMES.has(mimeType);
+  const supportsSplit = RASTER_MIMES.has(mimeType);
 
   async function onStrip() {
     setError(null);
@@ -64,6 +73,26 @@ export function ImageVariants({
       setError("network_error");
     } finally {
       setPending(false);
+    }
+  }
+
+  async function onSplit() {
+    setError(null);
+    setSplitting(true);
+    try {
+      const res = await fetch(`/api/history/${id}/split-quadrants`, {
+        method: "POST",
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setError(body.error ?? `error_${res.status}`);
+        return;
+      }
+      router.push("/postprocesado");
+    } catch {
+      setError("network_error");
+    } finally {
+      setSplitting(false);
     }
   }
 
@@ -96,13 +125,30 @@ export function ImageVariants({
             className="w-full rounded-md border border-border"
           />
           <div className="flex flex-wrap items-center justify-end gap-2">
+            {supportsSplit ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onSplit}
+                disabled={splitting || pending}
+                aria-label={alreadySplit ? "View existing quadrants" : "Split into 4"}
+              >
+                <Grid2x2 className="size-4" aria-hidden />
+                {splitting
+                  ? "Splitting…"
+                  : alreadySplit
+                    ? "View quadrants"
+                    : "Split into 4"}
+              </Button>
+            ) : null}
             {supportsBgStrip ? (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={onStrip}
-                disabled={pending}
+                disabled={pending || splitting}
               >
                 <Eraser className="size-4" aria-hidden />
                 {pending ? "Removing background…" : "Remove background"}

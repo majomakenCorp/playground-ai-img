@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { readImageBytes, resolveImage } from "@/lib/storage/images";
 import { UuidV7Schema } from "@/lib/validation/schemas";
+import { VARIANT_KINDS } from "@/lib/storage/history";
 
-const ALLOWED_VARIANTS = new Set(["transparent"]);
+const ALLOWED_VARIANTS = new Set<string>(VARIANT_KINDS);
 
 export async function GET(
   req: Request,

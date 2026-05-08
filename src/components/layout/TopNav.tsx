@@ -18,6 +18,11 @@ const LINKS = [
     match: (p: string) => p.startsWith("/demo/history"),
   },
   {
+    href: "/postprocesado",
+    label: "Postprocesado",
+    match: (p: string) => p.startsWith("/postprocesado"),
+  },
+  {
     href: "/system-prompts",
     label: "System Prompts",
     match: (p: string) => p.startsWith("/system-prompts"),

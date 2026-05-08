@@ -25,6 +25,16 @@ export const HistoryQuerySchema = z.object({
   before: z.string().datetime().optional(),
 });
 
+export const VectorizeOptionsSchema = z.object({
+  mode: z.enum(["mono"]).default("mono"),
+});
+export type VectorizeOptionsInput = z.infer<typeof VectorizeOptionsSchema>;
+
+export const PostprocesadoQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(50),
+  before: z.string().datetime().optional(),
+});
+
 const trimmed = (max: number) => z.string().trim().max(max);
 
 export const BrandBriefFormSchema = z.object({
