@@ -10,6 +10,9 @@ interface UsageTotal {
   totalTokens: number;
   firstAt: string | null;
   lastAt: string | null;
+  avgDurationMs: number | null;
+  totalDurationMs: number | null;
+  maxDurationMs: number | null;
 }
 
 interface BalanceState {
@@ -24,6 +27,15 @@ const PROVIDER_LABELS: Record<string, string> = {
 
 // Providers that expose a live account-balance endpoint.
 const BALANCE_PROVIDERS = ["recraft"] as const;
+
+function formatDur(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const m = Math.floor(s / 60);
+  const rem = Math.round(s - m * 60);
+  return `${m}m${rem}s`;
+}
 
 export function UsageSummary() {
   const [totals, setTotals] = useState<UsageTotal[]>([]);
@@ -127,6 +139,12 @@ export function UsageSummary() {
                     </span>
                   ) : null}
                 </div>
+                {t && t.avgDurationMs !== null ? (
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>avg {formatDur(t.avgDurationMs)}</span>
+                    <span>max {formatDur(t.maxDurationMs ?? 0)}</span>
+                  </div>
+                ) : null}
                 {b ? (
                   b.error ? (
                     <div className="text-xs text-destructive">

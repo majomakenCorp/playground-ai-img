@@ -101,6 +101,7 @@ export interface GenerateResult {
     totalTokens: number;
     raw: unknown;
   };
+  durationMs: number | null;
   createdAt: string;
 }
 
@@ -138,6 +139,11 @@ export function Playground({ providers }: { providers: ProviderOption[] }) {
   );
   const currentOptions = optionsByProvider[providerId] ?? {};
 
+  const promptLimitInfo = useMemo(
+    () => computePromptLimit(providerId, currentOptions),
+    [providerId, currentOptions],
+  );
+
   function setOption(id: string, value: string) {
     setOptionsByProvider((prev) => {
       const provOpts = { ...(prev[providerId] ?? {}), [id]: value };
@@ -166,6 +172,8 @@ export function Playground({ providers }: { providers: ProviderOption[] }) {
     if (!providerId) return;
     setError(null);
     setPending(true);
+    const submittedProviderId = providerId;
+    const submittedAt = new Date();
     try {
       // Strip options for hidden fields so the server isn't sent stale values.
       const fields = currentProvider?.optionFields ?? [];
@@ -178,7 +186,7 @@ export function Playground({ providers }: { providers: ProviderOption[] }) {
       }
 
       const body: Record<string, unknown> = {
-        providerId,
+        providerId: submittedProviderId,
         prompt,
         options: submittedOptions,
       };
@@ -192,10 +200,12 @@ export function Playground({ providers }: { providers: ProviderOption[] }) {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const bodyJson = await res.json().catch(() => ({}));
-        setError(
-          (bodyJson as { error?: string }).error ?? `error_${res.status}`,
-        );
+        const bodyJson = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          detail?: string;
+        };
+        const code = bodyJson.error ?? `error_${res.status}`;
+        setError(bodyJson.detail ? `${code}: ${bodyJson.detail}` : code);
         return;
       }
       const data = (await res.json()) as GenerateResult;
@@ -204,9 +214,26 @@ export function Playground({ providers }: { providers: ProviderOption[] }) {
         new CustomEvent("history:append", { detail: data }),
       );
     } catch (err) {
+      // Browser network failures (e.g. proxy/Node timeout, wifi blip, tab
+      // backgrounded) abort the fetch even though the server-side generation
+      // usually finishes and writes to history. Recover by polling history
+      // for a fresh entry matching this prompt + provider before surfacing
+      // the error.
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[generate] client error:", msg, err);
-      setError(`network_error: ${msg}`);
+      const recovered = await tryRecoverFromHistory({
+        providerId: submittedProviderId,
+        prompt,
+        submittedAt,
+      });
+      if (recovered) {
+        setResult(recovered);
+        window.dispatchEvent(
+          new CustomEvent("history:append", { detail: recovered }),
+        );
+      } else {
+        setError(`network_error: ${msg}`);
+      }
     } finally {
       setPending(false);
     }
@@ -283,7 +310,8 @@ export function Playground({ providers }: { providers: ProviderOption[] }) {
       <PromptForm
         onSubmit={onSubmit}
         disabled={pending || !providerId}
-        providerId={providerId}
+        promptLimit={promptLimitInfo?.limit}
+        limitLabel={promptLimitInfo?.label}
       />
       {error ? (
         <Alert variant="destructive">
@@ -305,4 +333,71 @@ function initialOptions(
     );
   }
   return out;
+}
+
+// Per Recraft docs (api-reference/appendix#maximum-prompt-length): V2/V3
+// family caps prompts at 1000 chars; V4 family caps at 10000. Gemini has no
+// public hard cap relevant at the playground scale.
+function computePromptLimit(
+  providerId: string,
+  options: Record<string, string>,
+): { limit: number; label: string } | null {
+  if (providerId !== "recraft") return null;
+  const model = options.model ?? "recraftv3";
+  if (model.startsWith("recraftv4")) {
+    return { limit: 10_000, label: "Recraft V4" };
+  }
+  return { limit: 1_000, label: "Recraft V2/V3" };
+}
+
+interface HistoryListItem {
+  id: string;
+  createdAt: string;
+  providerId: string;
+  prompt: string;
+  mimeType?: string;
+  imageUrl: string;
+}
+
+async function tryRecoverFromHistory(args: {
+  providerId: string;
+  prompt: string;
+  submittedAt: Date;
+}): Promise<GenerateResult | null> {
+  const RECOVERY_DEADLINE_MS = 8 * 60_000;
+  const POLL_INTERVAL_MS = 5_000;
+  const deadline = Date.now() + RECOVERY_DEADLINE_MS;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    let items: HistoryListItem[] | null = null;
+    try {
+      const r = await fetch("/api/history?limit=10", { cache: "no-store" });
+      if (r.ok) {
+        const j = (await r.json()) as { items?: HistoryListItem[] };
+        items = j.items ?? [];
+      }
+    } catch {
+      continue;
+    }
+    if (!items) continue;
+    const match = items.find(
+      (it) =>
+        it.providerId === args.providerId &&
+        it.prompt === args.prompt &&
+        new Date(it.createdAt).getTime() >= args.submittedAt.getTime() - 1_000,
+    );
+    if (match) {
+      return {
+        id: match.id,
+        providerId: match.providerId,
+        prompt: match.prompt,
+        imageUrl: match.imageUrl,
+        mimeType: match.mimeType ?? "image/png",
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, raw: null },
+        durationMs: null,
+        createdAt: match.createdAt,
+      };
+    }
+  }
+  return null;
 }

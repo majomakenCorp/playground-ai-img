@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Grid2x2 } from "lucide-react";
+import { Download, Grid2x2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TokenUsageBadge } from "@/components/playground/TokenUsageBadge";
+import {
+  VectorizeButton,
+  type VectorizeVariantInfo,
+} from "@/components/postprocesado/VectorizeButton";
 import type { GenerateResult } from "@/components/playground/Playground";
 
 const RASTER_MIMES = new Set([
@@ -26,6 +30,16 @@ export function ResultPanel({
   const router = useRouter();
   const [splitting, setSplitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [vectorVariant, setVectorVariant] =
+    useState<VectorizeVariantInfo | null>(null);
+  const [lastSeenId, setLastSeenId] = useState<string | undefined>(
+    result?.id,
+  );
+
+  if (result?.id !== lastSeenId) {
+    setLastSeenId(result?.id);
+    setVectorVariant(null);
+  }
 
   if (pending) {
     return (
@@ -51,6 +65,9 @@ export function ResultPanel({
   const ext = extForMime(result.mimeType);
   const downloadName = `${slugify(result.prompt)}-${result.id.slice(0, 8)}.${ext}`;
   const supportsSplit = RASTER_MIMES.has(result.mimeType);
+  const supportsVectorize = RASTER_MIMES.has(result.mimeType);
+  const svgUrl = vectorVariant ? `/api/images/${result.id}?variant=vector` : null;
+  const svgDownloadName = `${slugify(result.prompt)}-${result.id.slice(0, 8)}.svg`;
 
   async function onSplit() {
     if (!result) return;
@@ -76,19 +93,36 @@ export function ResultPanel({
   return (
     <Card>
       <CardContent className="flex flex-col gap-4 p-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={result.imageUrl}
-          alt={result.prompt}
-          className="w-full rounded-md border border-border"
-        />
+        {svgUrl ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={result.imageUrl}
+              alt={result.prompt}
+              className="w-full rounded-md border border-border"
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={svgUrl}
+              alt={`${result.prompt} (vectorized)`}
+              className="w-full rounded-md border border-border bg-white"
+            />
+          </div>
+        ) : (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={result.imageUrl}
+            alt={result.prompt}
+            className="w-full rounded-md border border-border"
+          />
+        )}
         <div className="flex flex-col gap-3">
           <p className="text-sm">
             <span className="text-muted-foreground">Prompt: </span>
             {result.prompt}
           </p>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <TokenUsageBadge usage={result.usage} />
+            <TokenUsageBadge usage={result.usage} durationMs={result.durationMs} />
             <div className="flex flex-wrap items-center gap-2">
               {supportsSplit ? (
                 <Button
@@ -102,11 +136,26 @@ export function ResultPanel({
                   {splitting ? "Splitting…" : "Split into 4"}
                 </Button>
               ) : null}
+              {supportsVectorize ? (
+                <VectorizeButton
+                  id={result.id}
+                  alreadyVectorized={Boolean(vectorVariant)}
+                  onSuccess={setVectorVariant}
+                />
+              ) : null}
               <Button asChild variant="secondary" size="sm">
                 <a href={result.imageUrl} download={downloadName}>
                   Download .{ext}
                 </a>
               </Button>
+              {svgUrl ? (
+                <Button asChild variant="secondary" size="sm">
+                  <a href={svgUrl} download={svgDownloadName}>
+                    <Download className="size-4" aria-hidden />
+                    Download .svg
+                  </a>
+                </Button>
+              ) : null}
             </div>
           </div>
           {error ? (

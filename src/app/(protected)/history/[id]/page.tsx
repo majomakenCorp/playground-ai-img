@@ -57,6 +57,7 @@ export default async function HistoryDetailPage({
             imageFilename={record.imageFilename}
             mimeType={record.mimeType}
             transparentVariant={record.variants?.transparent ?? null}
+            vectorVariant={record.variants?.vector ?? null}
             alreadySplit={(record.childIds?.length ?? 0) === 4}
           />
 
@@ -103,10 +104,19 @@ export default async function HistoryDetailPage({
             <h2 className="text-sm font-medium text-muted-foreground">
               Usage (tokens / units)
             </h2>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <UsageStat label="Input" value={record.inputTokens} />
               <UsageStat label="Output" value={record.outputTokens} />
               <UsageStat label="Total" value={record.totalTokens} highlight />
+              <UsageStat
+                label="Duration"
+                value={record.durationMs ?? 0}
+                formatted={
+                  record.durationMs !== null
+                    ? formatDurationLong(record.durationMs)
+                    : "—"
+                }
+              />
             </div>
           </section>
 
@@ -140,10 +150,12 @@ function UsageStat({
   label,
   value,
   highlight,
+  formatted,
 }: {
   label: string;
   value: number;
   highlight?: boolean;
+  formatted?: string;
 }) {
   return (
     <div
@@ -157,8 +169,17 @@ function UsageStat({
         {label}
       </div>
       <div className="font-mono text-lg tabular-nums">
-        {value.toLocaleString()}
+        {formatted ?? value.toLocaleString()}
       </div>
     </div>
   );
+}
+
+function formatDurationLong(ms: number): string {
+  if (ms < 1000) return `${ms} ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)} s`;
+  const m = Math.floor(s / 60);
+  const rem = Math.round(s - m * 60);
+  return `${m}m ${rem}s`;
 }

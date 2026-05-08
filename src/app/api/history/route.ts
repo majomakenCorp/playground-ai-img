@@ -32,6 +32,7 @@ export async function GET(req: Request) {
       createdAt: r.createdAt,
       providerId: r.providerId,
       prompt: r.prompt,
+      mimeType: r.mimeType,
       imageUrl: `/api/images/${r.id}`,
     })),
   });

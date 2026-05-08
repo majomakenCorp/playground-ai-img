@@ -6,12 +6,20 @@ import { Spline } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+export interface VectorizeVariantInfo {
+  filename: string;
+  mimeType: string;
+  createdAt: string;
+}
+
 export function VectorizeButton({
   id,
   alreadyVectorized,
+  onSuccess,
 }: {
   id: string;
   alreadyVectorized: boolean;
+  onSuccess?: (variant: VectorizeVariantInfo) => void;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -26,12 +34,19 @@ export function VectorizeButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "mono" }),
       });
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        variant?: VectorizeVariantInfo;
+      };
       if (!res.ok) {
         setError(body.error ?? `error_${res.status}`);
         return;
       }
-      router.refresh();
+      if (onSuccess && body.variant) {
+        onSuccess(body.variant);
+      } else {
+        router.refresh();
+      }
     } catch {
       setError("network_error");
     } finally {

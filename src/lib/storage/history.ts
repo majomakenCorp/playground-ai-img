@@ -33,6 +33,7 @@ export interface HistoryRecord {
   parentRole: HistoryParentRole | null;
   quadrantIndex: number | null;
   childIds: string[] | null;
+  durationMs: number | null;
   createdAt: string;
 }
 
@@ -50,6 +51,7 @@ export interface InsertHistoryInput {
   parentId?: string | null;
   parentRole?: HistoryParentRole | null;
   quadrantIndex?: number | null;
+  durationMs: number;
 }
 
 export async function insertHistory(
@@ -70,6 +72,7 @@ export async function insertHistory(
     parentId: input.parentId ?? null,
     parentRole: input.parentRole ?? null,
     quadrantIndex: input.quadrantIndex ?? null,
+    durationMs: input.durationMs,
   });
   return toRecord(doc.toObject());
 }
@@ -102,6 +105,9 @@ export interface UsageTotal {
   totalTokens: number;
   firstAt: string | null;
   lastAt: string | null;
+  avgDurationMs: number | null;
+  totalDurationMs: number | null;
+  maxDurationMs: number | null;
 }
 
 interface AggregateRow {
@@ -112,6 +118,9 @@ interface AggregateRow {
   totalTokens: number;
   firstAt: Date | null;
   lastAt: Date | null;
+  avgDurationMs: number | null;
+  totalDurationMs: number | null;
+  maxDurationMs: number | null;
 }
 
 export async function aggregateUsage(): Promise<UsageTotal[]> {
@@ -130,6 +139,9 @@ export async function aggregateUsage(): Promise<UsageTotal[]> {
         totalTokens: { $sum: "$totalTokens" },
         firstAt: { $min: "$createdAt" },
         lastAt: { $max: "$createdAt" },
+        avgDurationMs: { $avg: "$durationMs" },
+        totalDurationMs: { $sum: "$durationMs" },
+        maxDurationMs: { $max: "$durationMs" },
       },
     },
     { $sort: { totalTokens: -1 } },
@@ -142,6 +154,12 @@ export async function aggregateUsage(): Promise<UsageTotal[]> {
     totalTokens: r.totalTokens,
     firstAt: r.firstAt ? r.firstAt.toISOString() : null,
     lastAt: r.lastAt ? r.lastAt.toISOString() : null,
+    avgDurationMs:
+      typeof r.avgDurationMs === "number" ? Math.round(r.avgDurationMs) : null,
+    totalDurationMs:
+      typeof r.totalDurationMs === "number" ? r.totalDurationMs : null,
+    maxDurationMs:
+      typeof r.maxDurationMs === "number" ? r.maxDurationMs : null,
   }));
 }
 
@@ -246,6 +264,7 @@ function toRecord(
     parentRole?: HistoryParentRole | null;
     quadrantIndex?: number | null;
     childIds?: string[] | null;
+    durationMs?: number | null;
   },
 ): HistoryRecord {
   const createdAt =
@@ -268,6 +287,7 @@ function toRecord(
     parentRole: doc.parentRole ?? null,
     quadrantIndex: doc.quadrantIndex ?? null,
     childIds: doc.childIds ?? null,
+    durationMs: typeof doc.durationMs === "number" ? doc.durationMs : null,
     createdAt,
   };
 }

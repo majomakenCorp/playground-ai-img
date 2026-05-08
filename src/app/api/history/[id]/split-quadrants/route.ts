@@ -119,6 +119,7 @@ export async function POST(
         parentId,
         parentRole: "quadrant",
         quadrantIndex: i,
+        durationMs: 0,
       });
       inserted.push(rec);
     }

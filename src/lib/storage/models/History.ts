@@ -13,6 +13,8 @@ const HistorySchema = new Schema(
     totalTokens: { type: Number, required: true, min: 0 },
     rawUsage: { type: Schema.Types.Mixed, required: true },
     providerMetadata: { type: Schema.Types.Mixed, default: null },
+    /** Wall-clock duration of the provider.generate() call, in milliseconds. */
+    durationMs: { type: Number, default: null },
     /**
      * Post-processed alternates of the same image. Keyed by variant kind
      * (e.g. "transparent" for an SVG with the background primer stripped,

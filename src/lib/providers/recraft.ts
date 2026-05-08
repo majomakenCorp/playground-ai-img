@@ -95,6 +95,19 @@ const NEGATIVE_PROMPT_MODELS: RecraftModel[] = [
   "recraftv3_vector",
 ];
 
+// Per Recraft docs (api-reference/appendix#maximum-prompt-length):
+// V2/V3 family caps prompts at 1000 chars; V4 family caps at 10000.
+const MAX_PROMPT_LENGTH: Record<RecraftModel, number> = {
+  recraftv2: 1000,
+  recraftv2_vector: 1000,
+  recraftv3: 1000,
+  recraftv3_vector: 1000,
+  recraftv4: 10_000,
+  recraftv4_vector: 10_000,
+  recraftv4_pro: 10_000,
+  recraftv4_pro_vector: 10_000,
+};
+
 // Cross-model aspect ratios per the appendix.
 const SIZES = [
   "1:1",
@@ -215,6 +228,15 @@ export class RecraftProvider implements ImageProvider {
   async generate(input: GenerateInput): Promise<GenerateOutput> {
     const model = pickFromList(input.options?.model, MODELS, DEFAULT_MODEL);
     const size = pickFromList(input.options?.size, SIZES, DEFAULT_SIZE);
+
+    const maxPrompt = MAX_PROMPT_LENGTH[model];
+    if (input.prompt.length > maxPrompt) {
+      throw new ProviderError({
+        kind: "invalid_request",
+        providerId: this.id,
+        message: `Prompt exceeds Recraft ${MODEL_LABELS[model]} limit of ${maxPrompt} characters (got ${input.prompt.length}).`,
+      });
+    }
 
     const body: Record<string, unknown> = {
       prompt: input.prompt,

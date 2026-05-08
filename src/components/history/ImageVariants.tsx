@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Download, Eraser, Grid2x2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { VectorizeButton } from "@/components/postprocesado/VectorizeButton";
 
 export interface VariantInfo {
   filename: string;
@@ -32,6 +33,7 @@ export function ImageVariants({
   imageFilename,
   mimeType,
   transparentVariant,
+  vectorVariant,
   alreadySplit,
 }: {
   id: string;
@@ -39,6 +41,7 @@ export function ImageVariants({
   imageFilename: string;
   mimeType: string;
   transparentVariant: VariantInfo | null;
+  vectorVariant: VariantInfo | null;
   alreadySplit: boolean;
 }) {
   const router = useRouter();
@@ -48,6 +51,8 @@ export function ImageVariants({
 
   const supportsBgStrip = BG_STRIP_MIMES.has(mimeType);
   const supportsSplit = RASTER_MIMES.has(mimeType);
+  const supportsVectorize = RASTER_MIMES.has(mimeType);
+  const hasAnyVariant = Boolean(transparentVariant || vectorVariant);
 
   async function onStrip() {
     setError(null);
@@ -96,10 +101,19 @@ export function ImageVariants({
     }
   }
 
+  const panelCount =
+    1 + (transparentVariant ? 1 : 0) + (vectorVariant ? 1 : 0);
+  const gridCols =
+    panelCount >= 3
+      ? "md:grid-cols-3"
+      : panelCount === 2
+        ? "md:grid-cols-2"
+        : "";
+
   return (
     <div className="flex flex-col gap-4">
-      {transparentVariant ? (
-        <div className="grid gap-4 md:grid-cols-2">
+      {hasAnyVariant ? (
+        <div className={`grid gap-4 ${gridCols}`}>
           <VariantPanel
             title="Original"
             label="Download original"
@@ -107,14 +121,25 @@ export function ImageVariants({
             alt={prompt}
             downloadName={imageFilename}
           />
-          <VariantPanel
-            title="Without background"
-            label="Download without background"
-            src={`/api/images/${id}?variant=transparent`}
-            alt={`${prompt} (transparent)`}
-            downloadName={transparentVariant.filename}
-            checker
-          />
+          {transparentVariant ? (
+            <VariantPanel
+              title="Without background"
+              label="Download without background"
+              src={`/api/images/${id}?variant=transparent`}
+              alt={`${prompt} (transparent)`}
+              downloadName={transparentVariant.filename}
+              checker
+            />
+          ) : null}
+          {vectorVariant ? (
+            <VariantPanel
+              title="Vectorized (SVG)"
+              label="Download .svg"
+              src={`/api/images/${id}?variant=vector`}
+              alt={`${prompt} (vectorized)`}
+              downloadName={vectorVariant.filename}
+            />
+          ) : null}
         </div>
       ) : (
         <>
@@ -141,6 +166,9 @@ export function ImageVariants({
                     ? "View quadrants"
                     : "Split into 4"}
               </Button>
+            ) : null}
+            {supportsVectorize ? (
+              <VectorizeButton id={id} alreadyVectorized={false} />
             ) : null}
             {supportsBgStrip ? (
               <Button
