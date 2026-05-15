@@ -35,6 +35,10 @@ services:
     container_name: playground-app
     restart: unless-stopped
     env_file: .env
+    # Run as the host user so the bind-mounted ~/.claude (rw, for token
+    # refresh) and ./generate-images keep matching ownership. Populate `.env`
+    # with `HOST_UID=$(id -u)` / `HOST_GID=$(id -g)`.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     depends_on:
       mongo:
         condition: service_healthy
@@ -42,6 +46,21 @@ services:
       - "${HOST_PORT:-3030}:3000"
     volumes:
       - ./generate-images:/app/generate-images
+      # Claude Code CLI from the host (see docs/sdd-claude-provider.md §5.2).
+      # The shebang at /usr/bin/claude is a symlink into /usr/lib/node_modules,
+      # so both paths are mounted read-only — the app only invokes the binary.
+      - /usr/bin/claude:/usr/local/bin/claude:ro
+      - /usr/lib/node_modules/@anthropic-ai/claude-code:/usr/lib/node_modules/@anthropic-ai/claude-code:ro
+      # Subscription credentials — read-write so the CLI can refresh tokens.
+      - ${HOME}/.claude:/home/app/.claude
+      # Main CLI config (sibling of .claude/, not inside it). Required — the
+      # CLI errors out with "configuration file not found" if absent.
+      - ${HOME}/.claude.json:/home/app/.claude.json
+    environment:
+      # CLI looks for credentials under $HOME/.claude.
+      - HOME=/home/app
+      # Absolute path used by src/lib/providers/claude-cli.ts.
+      - CLAUDE_CLI_PATH=/usr/local/bin/claude
     networks: [playground]
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]

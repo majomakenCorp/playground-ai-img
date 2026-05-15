@@ -52,6 +52,7 @@ const PARENT_RECORD = {
   parentRole: null,
   quadrantIndex: null,
   childIds: null,
+  durationMs: 0,
   createdAt: new Date().toISOString(),
 };
 

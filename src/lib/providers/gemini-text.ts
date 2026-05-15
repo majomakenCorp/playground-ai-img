@@ -22,29 +22,31 @@ export async function generateText({
   systemPrompt,
   userPrompt,
 }: {
-  systemPrompt: string;
+  systemPrompt?: string;
   userPrompt: string;
 }): Promise<string> {
   const apiKey = env.GEMINI_API_KEY;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
 
+  const requestBody: Record<string, unknown> = {
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: userPrompt }],
+      },
+    ],
+  };
+  if (systemPrompt && systemPrompt.trim().length > 0) {
+    requestBody.systemInstruction = { parts: [{ text: systemPrompt }] };
+  }
+
   let res: Response;
   try {
     res = await fetch(endpoint(apiKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: systemPrompt }],
-        },
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: userPrompt }],
-          },
-        ],
-      }),
+      body: JSON.stringify(requestBody),
       signal: ctrl.signal,
     });
   } catch (err) {
@@ -57,6 +59,8 @@ export async function generateText({
   }
 
   if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.error(`[gemini-text] HTTP ${res.status}:`, errBody);
     if (res.status === 401 || res.status === 403) {
       throw new ProviderError({ kind: "auth", providerId: "gemini-text", message: "Gemini auth failed" });
     }

@@ -212,11 +212,13 @@ Before declaring a task done: `npm run lint && npx tsc --noEmit && npm run build
 
 ## 7. Docker
 
-Multi-stage `Dockerfile` (app) + `docker-compose.yml` (app + `mongo:7` sidecar) per ARQUITECTURE.md §9. App runs as non-root `app` user on `node:22-alpine`. Mongo data lives in a named Docker volume (`mongo_data`); generated images bind-mount from `./generate-images`. Reverse proxy terminates TLS — `Secure` cookies require it. Local stack: `docker compose up -d --build`.
+Multi-stage `Dockerfile` (app) + `docker-compose.yml` (app + `mongo:7` sidecar) per ARQUITECTURE.md §9. The `deps` and `builder` stages use `node:22-alpine`; the `runner` stage uses `node:22-bookworm-slim` so it can execute the host's glibc-based Claude CLI when bind-mounted (see "Claude Code CLI bridge" below). App runs as the host user at runtime (`user: "${HOST_UID}:${HOST_GID}"`). Mongo data lives in a named Docker volume (`mongo_data`); generated images bind-mount from `./generate-images`. Reverse proxy terminates TLS — `Secure` cookies require it. Local stack: `docker compose up -d --build`.
 
 **Mongoose connection rule:** always go through `connectMongo()` from `@/lib/storage/mongo.ts`. Never call `mongoose.connect()` directly elsewhere — the helper caches the connection on `globalThis` so Next.js HMR doesn't leak sockets.
 
-**Bind-mount permission gotcha:** the app container runs as `app` (uid 100). The host `./generate-images` directory must be writable by uid 100. On a fresh checkout, run `chmod 0777 generate-images` once before `docker compose up`, otherwise `/api/generate` returns 500 `storage_failed`.
+**Bind-mount permission gotcha:** the container runs as the UID/GID specified in `.env` (default `1000:1000`). On a fresh checkout, populate them with `echo "HOST_UID=$(id -u)" >> .env && echo "HOST_GID=$(id -g)" >> .env` and ensure `./generate-images` is writable by that user, otherwise `/api/generate` returns 500 `storage_failed`.
+
+**Claude Code CLI bridge (documented exception to "everything in Docker"):** when `CLAUDE_REFINE_ENABLED=true`, `docker-compose.yml` bind-mounts `/usr/bin/claude`, `/usr/lib/node_modules/@anthropic-ai/claude-code`, `${HOME}/.claude` (rw, for token refresh), and `${HOME}/.claude.json` (rw, the main CLI config — sibling of `.claude/`, not inside it; the CLI errors out "configuration file not found" if missing) into the `app` container so brief refinement can shell out to the host's subscription-authed CLI. The CLI runs with `--disallowedTools "*"` so no host FS/Bash access is reachable through it. See `docs/sdd-claude-provider.md` for the full design and threat model. Disable this feature (`CLAUDE_REFINE_ENABLED=false`) in any environment that doesn't have the host CLI installed.
 
 ---
 

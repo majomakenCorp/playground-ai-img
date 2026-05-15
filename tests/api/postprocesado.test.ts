@@ -37,6 +37,7 @@ describe("GET /api/postprocesado", () => {
       parentRole: null,
       quadrantIndex: null,
       childIds: ["c0", "c1", "c2", "c3"],
+      durationMs: 0,
       createdAt: "2026-05-07T12:00:00.000Z",
     };
     const quadrants = [0, 1, 2, 3].map((i) => ({

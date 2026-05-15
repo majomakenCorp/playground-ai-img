@@ -18,7 +18,11 @@ ENV NODE_ENV=production
 RUN npm run build
 
 # ---------- 3. runner ----------
-FROM node:22-alpine AS runner
+# Debian (glibc) base. The host's Claude Code CLI (`/usr/bin/claude`) is a
+# Node SEA dynamically linked against glibc, so it cannot run on Alpine/musl
+# when bind-mounted from the host. Builder stays on Alpine for speed.
+# See docs/sdd-claude-provider.md §5.2 for the reasoning.
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -26,10 +30,14 @@ ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
 # wget is used by the Compose healthcheck.
-RUN apk add --no-cache wget
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends wget ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
-# Non-root user.
-RUN addgroup -S app && adduser -S app -G app
+# Non-root user. UID/GID match the host user at runtime via Compose
+# (`user: "${HOST_UID}:${HOST_GID}"`); the in-image uid/gid only matters for
+# files that are baked into the image.
+RUN groupadd --system app && useradd --system --gid app --home-dir /home/app --create-home app
 
 # Standalone server bundle + static assets only.
 COPY --from=builder --chown=app:app /app/.next/standalone ./
