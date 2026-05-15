@@ -17,3 +17,5 @@ docker-compose.yml
 *.log
 coverage
 .DS_Store
+tests
+vitest.config.ts

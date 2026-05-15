@@ -201,12 +201,19 @@ npx tsc --noEmit
 # lint
 npm run lint
 
+# tests (Vitest, see §9)
+npm test
+npm run test:watch
+npm run test:coverage
+
 # build (Turbopack, produces .next/standalone)
 npm run build
 npm start
 ```
 
-Before declaring a task done: `npm run lint && npx tsc --noEmit && npm run build`. UI changes additionally require manual browser verification of golden + edge paths.
+Before declaring a task done: `npm run lint && npx tsc --noEmit && npm test && npm run build`. UI changes additionally require manual browser verification of golden + edge paths.
+
+Node version is pinned via `.nvmrc` (currently `22`). Use the host runtime that matches it (`fnm use`, `nvm use`) or run inside the container.
 
 ---
 
@@ -240,14 +247,31 @@ If you propose work that conflicts with any item above, stop and surface the con
 
 ## 9. Testing & verification
 
-There is no test runner yet (out of scope for MVP). Verify changes manually:
+Test runner: **Vitest** (`vitest.config.ts`). New functionality ships with tests; legacy code without coverage may be touched without retroactive backfill, but new modules must include tests.
+
+```bash
+npm test               # one-shot
+npm run test:watch     # watch mode
+npm run test:coverage  # v8 coverage report
+```
+
+Test layout:
+
+- `tests/postprocess/**` — pure-function services (real `sharp`, real `potrace`).
+- `tests/api/**` — route handler unit tests (`@/lib/storage/*` and `@/lib/postprocess/*` are mocked via `vi.mock`).
+- `tests/setup.ts` — env-var defaults so `server-only` modules transitively load without throwing.
+- `tests/stubs/server-only.ts` — Vitest alias target for the `server-only` package.
+
+Manual verification still applies for UI work and for paths Vitest cannot exercise:
 
 1. Login with `APP_PASSWORD`, confirm cookie is set with the right flags.
-2. Generate one image per provider; confirm file appears under `generate-images/` and a row appears in `data/history.db`.
+2. Generate one image per provider; confirm file appears in R2 (or `generate-images/`) and a row appears in MongoDB.
 3. Reload sidebar, confirm history is in newest-first order.
 4. Click a history item, confirm prompt + image rehydrate.
 5. Hit `/api/images/<bad-uuid>` and `/api/images/../etc/passwd` — both must `400`/`404`, never serve files.
-6. Logout, confirm cookie cleared and `/` redirects to `/login`.
+6. Click **Split into 4** on a raster history item; verify 4 PNGs appear under `/postprocesado` and the parent's `childIds` field is populated.
+7. Click **Vectorize** on a quadrant; verify an SVG variant appears next to it and is downloadable via `/api/images/<id>?variant=vector`.
+8. Logout, confirm cookie cleared and `/` redirects to `/login`.
 
 Report what was tested vs not tested in the final summary.
 
