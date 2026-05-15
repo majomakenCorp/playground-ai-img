@@ -5,22 +5,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
-const RECRAFT_PROMPT_LIMIT = 4000;
-
 export function PromptForm({
   onSubmit,
   disabled,
-  providerId,
+  promptLimit,
+  limitLabel,
 }: {
   onSubmit: (prompt: string) => void;
   disabled?: boolean;
-  providerId?: string;
+  promptLimit?: number;
+  limitLabel?: string;
 }) {
   const [prompt, setPrompt] = useState("");
 
-  const isRecraft = providerId === "recraft";
-  const limit = isRecraft ? RECRAFT_PROMPT_LIMIT : undefined;
-  const overLimit = isRecraft && prompt.length > RECRAFT_PROMPT_LIMIT;
+  const overLimit = promptLimit !== undefined && prompt.length > promptLimit;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,7 +35,7 @@ export function PromptForm({
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         rows={5}
-        maxLength={limit}
+        maxLength={promptLimit}
         placeholder="Describe the image you want to generate…"
         disabled={disabled}
       />
@@ -45,8 +43,8 @@ export function PromptForm({
         <span
           className={`text-xs ${overLimit ? "text-destructive font-medium" : "text-muted-foreground"}`}
         >
-          {isRecraft
-            ? `${prompt.length} / ${RECRAFT_PROMPT_LIMIT}`
+          {promptLimit !== undefined
+            ? `${prompt.length} / ${promptLimit}${limitLabel ? ` · ${limitLabel}` : ""}`
             : `${prompt.length} characters`}
         </span>
         <Button type="submit" disabled={disabled || !prompt.trim() || overLimit}>

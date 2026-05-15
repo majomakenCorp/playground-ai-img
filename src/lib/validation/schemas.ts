@@ -97,3 +97,17 @@ export const SystemPromptPatchSchema = SystemPromptInputSchema.partial();
 export const GenerateBriefSchema = z.object({
   systemPromptId: UuidV7Schema,
 });
+
+export const PromptLabProviderId = z.enum(["gemini-text", "claude-cli"]);
+export type PromptLabProviderIdType = z.infer<typeof PromptLabProviderId>;
+
+export const PromptLabGenerateSchema = z.object({
+  providerId: PromptLabProviderId,
+  prompt: z.string().trim().min(1).max(32000),
+});
+export type PromptLabGenerateInput = z.infer<typeof PromptLabGenerateSchema>;
+
+export const PromptLabHistoryQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(50),
+  before: z.string().datetime().optional(),
+});

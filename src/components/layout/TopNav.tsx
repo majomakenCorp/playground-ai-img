@@ -27,6 +27,11 @@ const LINKS = [
     label: "System Prompts",
     match: (p: string) => p.startsWith("/system-prompts"),
   },
+  {
+    href: "/prompt-lab",
+    label: "Prompt Lab",
+    match: (p: string) => p.startsWith("/prompt-lab"),
+  },
 ];
 
 export function TopNav() {

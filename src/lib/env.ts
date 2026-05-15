@@ -30,6 +30,12 @@ const EnvSchema = z.object({
   R2_BUCKET: z.string().min(1).optional(),
   R2_ACCESS_KEY_ID: z.string().min(1).optional(),
   R2_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+
+  CLAUDE_REFINE_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  CLAUDE_CLI_PATH: z.string().min(1).default("/usr/bin/claude"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -53,3 +53,24 @@ When you discover a non-obvious project fact (deadlines, deploy targets, who run
 - **Do not edit** `ARQUITECTURE.md` to match your code. Edit code to match ARQUITECTURE.md, or propose an ARQUITECTURE.md change explicitly.
 - **Do not commit** without explicit "commit" / "push" instruction.
 - **Never** print the contents of `.env` or echo secrets back to the chat.
+
+### Documented exception — host Claude Code CLI bridge
+
+`docs/sdd-claude-provider.md` introduces a deliberate deviation from
+AGENTS.md §7 ("everything runs in Docker, no host-installed runtimes"):
+
+- The host's `/usr/bin/claude` binary, its `node_modules` tree, and
+  `${HOME}/.claude` (credentials) are **bind-mounted** into the `app`
+  container via `docker-compose.yml`. The container therefore runs the
+  user's host CLI binary, using the host's subscription credentials.
+- The runner stage of `Dockerfile` switched from `node:22-alpine` to
+  `node:22-bookworm-slim` because the host CLI is a glibc ELF SEA and
+  cannot run on musl.
+- The container also runs as `${HOST_UID}:${HOST_GID}` (defaults
+  `1000:1000`) so that `~/.claude` token refreshes don't leave files
+  owned by uid 100.
+- The whole bridge is gated by `CLAUDE_REFINE_ENABLED`. Set to `false`
+  in any environment without the host CLI (CI, prod without subscription).
+
+This exception is scoped to brief refinement. Do not invent additional
+host bind-mounts without an updated SDD section.

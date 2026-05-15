@@ -44,14 +44,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // Recraft's API caps prompts at 4000 characters.
-  if (parsed.data.providerId === "recraft" && parsed.data.prompt.length > 4000) {
-    return NextResponse.json(
-      { error: "prompt_too_long", detail: "Recraft prompts must be ≤ 4000 characters." },
-      { status: 400 },
-    );
-  }
-
   let systemPromptContent: string | undefined;
   if (parsed.data.systemPromptId) {
     const sp = await getSystemPrompt(parsed.data.systemPromptId);
@@ -62,6 +54,7 @@ export async function POST(req: Request) {
   }
 
   let result;
+  const generateStartedAt = Date.now();
   try {
     result = await provider.generate({
       prompt: parsed.data.prompt,
@@ -71,14 +64,19 @@ export async function POST(req: Request) {
   } catch (err) {
     if (err instanceof ProviderError) {
       console.error("[generate] provider error", err.kind, err.message);
-      return NextResponse.json(
-        { error: `provider_${err.kind}` },
-        { status: httpStatusFor(err.kind) },
-      );
+      // `invalid_request` messages come from our own validation, so they're
+      // safe (and useful) to surface. Other kinds may include upstream text;
+      // keep those opaque.
+      const payload: Record<string, unknown> = {
+        error: `provider_${err.kind}`,
+      };
+      if (err.kind === "invalid_request") payload.detail = err.message;
+      return NextResponse.json(payload, { status: httpStatusFor(err.kind) });
     }
     console.error("[generate] unexpected error", err);
     return NextResponse.json({ error: "internal" }, { status: 500 });
   }
+  const durationMs = Date.now() - generateStartedAt;
 
   // Source-of-truth for the actual image format: sniff the bytes themselves.
   // The provider's stated mime can lie (Gemini sometimes claims PNG for non-PNG
@@ -152,6 +150,7 @@ export async function POST(req: Request) {
       totalTokens: result.usage.totalTokens,
       rawUsage: result.usage.raw,
       providerMetadata: result.providerMetadata,
+      durationMs,
     });
   } catch (err) {
     console.error("[generate] history insert failed", err);
@@ -170,6 +169,7 @@ export async function POST(req: Request) {
       totalTokens: record.totalTokens,
       raw: record.rawUsage,
     },
+    durationMs: record.durationMs,
     providerMetadata: result.providerMetadata,
     createdAt: record.createdAt,
   });

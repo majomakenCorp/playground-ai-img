@@ -8,6 +8,7 @@ process.env.RECRAFT_API_KEY ??= "test-recraft";
 process.env.MONGODB_URI ??= "mongodb://localhost:27017/test";
 process.env.APP_ORIGIN ??= "http://localhost:3000";
 process.env.IMAGES_DIR ??= "./generate-images";
+process.env.CLAUDE_REFINE_ENABLED ??= "true";
 
 // Silence the noisy console in tests (route handlers log on failure paths
 // the tests deliberately exercise). We replace the methods directly rather

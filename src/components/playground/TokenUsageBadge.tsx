@@ -10,8 +10,10 @@ import type { GenerateResult } from "@/components/playground/Playground";
 
 export function TokenUsageBadge({
   usage,
+  durationMs,
 }: {
   usage: GenerateResult["usage"];
+  durationMs?: number | null;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -19,6 +21,9 @@ export function TokenUsageBadge({
         <Badge variant="secondary">in {usage.inputTokens}</Badge>
         <Badge variant="secondary">out {usage.outputTokens}</Badge>
         <Badge>total {usage.totalTokens}</Badge>
+        {typeof durationMs === "number" ? (
+          <Badge variant="outline">⏱ {formatDuration(durationMs)}</Badge>
+        ) : null}
         <span className="text-xs text-muted-foreground">tokens / units</span>
       </div>
       <Collapsible>
@@ -33,4 +38,13 @@ export function TokenUsageBadge({
       </Collapsible>
     </div>
   );
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms} ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)} s`;
+  const m = Math.floor(s / 60);
+  const rem = Math.round(s - m * 60);
+  return `${m}m ${rem}s`;
 }

@@ -41,6 +41,7 @@ const QUADRANT_RECORD = {
   parentRole: "quadrant" as const,
   quadrantIndex: 0,
   childIds: null,
+  durationMs: 0,
   createdAt: new Date().toISOString(),
 };
 
