@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUSINESS_TYPES,
   EDIT_INTENSITIES,
   EDIT_INTENSITY_LABELS,
   buildGlyphEditTemplate,
@@ -61,5 +62,39 @@ describe("buildGlyphEditTemplate", () => {
     expect(t).toContain("<brand_name>[BRAND NAME]</brand_name>");
     expect(t).toContain("Contrast anchor: the wordmark reads first");
     expect(t).toContain("This brand is NOT:");
+  });
+
+  it("carries every brand_context tag glyph's prompt v5 sends", () => {
+    const t = buildGlyphEditTemplate();
+    for (const tag of [
+      "brand_name",
+      "sector",
+      "business_type",
+      "purpose",
+      "promise",
+      "personality",
+      "archetype",
+      "audience",
+      "audience_motivations",
+      "desired_perception",
+      "tone_of_voice",
+      "emotional_aura",
+      "additional_notes",
+    ]) {
+      expect(t).toContain(`<${tag}>`);
+      expect(t).toContain(`</${tag}>`);
+    }
+  });
+
+  it("offers the four business types in glyph's own wording", () => {
+    const t = buildGlyphEditTemplate();
+    for (const v of BUSINESS_TYPES) expect(t).toContain(v);
+    expect(BUSINESS_TYPES).toHaveLength(4);
+  });
+
+  it("states the palette commit-and-apply clause, not just a mood", () => {
+    expect(buildGlyphEditTemplate()).toContain(
+      "Commit to one primary and one accent HEX",
+    );
   });
 });

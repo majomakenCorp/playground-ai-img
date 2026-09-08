@@ -1,6 +1,7 @@
 /**
  * The fixed blocks of glyph's logo edit prompt, copied verbatim from
- * `glyph/src/lib/prompts/logo-edit.ts` (v3) and `glyph/src/lib/prompts/logo.ts`,
+ * `glyph/src/lib/prompts/logo-edit.ts` (edit v4) and
+ * `glyph/src/lib/prompts/logo.ts` (prompt v5),
  * so the playground can test the real prompt shape instead of an invented one.
  * Brand-specific blocks glyph fills from the brief are rendered as bracketed
  * placeholders for the tester to replace.
@@ -57,25 +58,48 @@ Senior brand designer. Logos are system primitives — not decoration. A great m
 const EDIT_SIBLING_LINE =
   "Same universe, palette and personality as the sibling variants; only the degree of intervention on the existing mark changes.";
 
+/**
+ * `<brand_context>` as of glyph's prompt v5, which gave every form field its
+ * own tag. Order and tag names match `buildLogoPrompts`; in glyph an optional
+ * tag is OMITTED when the field is empty rather than filled with a fallback,
+ * so delete the lines you have no answer for instead of leaving the bracket.
+ *
+ * `<business_type>` takes one of four fixed values (see BUSINESS_TYPES below).
+ * The palette line carries glyph's own commit-and-apply wording, because the
+ * model treats "a direction" and "these two hexes" very differently.
+ */
 const BRAND_PLACEHOLDER_BLOCK = `<brand_context>
   <brand_name>[BRAND NAME]</brand_name>
   <sector>[SECTOR]</sector>
-  <purpose>[PURPOSE]</purpose>
-  <promise>[PROMISE]</promise>
-  <personality>[PERSONALITY TRAITS]</personality>
-  <audience>[AUDIENCE]</audience>
+  <business_type>[B2C, sells to individuals | B2B, sells to companies | Non-profit / NGO | Personal brand]</business_type>
+  <purpose>[PURPOSE — what the brand is]</purpose>
+  <promise>[PROMISE — what the customer gets — how it differs]</promise>
+  <personality>[TONE WORDS + AESTHETIC UNIVERSE, comma separated]</personality>
+  <archetype>[PRIMARY ARCHETYPE with secondary SECONDARY ARCHETYPE]</archetype>
+  <audience>[WHO THE BRAND TALKS TO]</audience>
+  <audience_motivations>[WHAT THAT AUDIENCE WANTS OR LOOKS FOR]</audience_motivations>
+  <desired_perception>[HOW THE BRAND WANTS TO BE PERCEIVED, comma separated]</desired_perception>
   <tone_of_voice>[TONE OF VOICE]</tone_of_voice>
-  <emotional_aura>[EMOTIONAL AURA]</emotional_aura>
+  <emotional_aura>[THE SEED IDEA OR FEELING, if it adds something the promise does not]</emotional_aura>
+  <additional_notes>[ANYTHING TO NUANCE — delete if empty]</additional_notes>
 </brand_context>
 
 <visual_territory>
   <aesthetic_universe>[AESTHETIC UNIVERSE DESCRIPTION]</aesthetic_universe>
   <color_palette>
-    [PALETTE DIRECTION, e.g. hex values and mood]
+    Direction: [PALETTE DIRECTION — mood and family]. Commit to one primary and one accent HEX that fit the brand DNA above, and apply them consistently: the symbol carries the primary as its dominant color.
     Contrast anchor: the wordmark reads first — near-black or a dark tint/shade of a palette hue, never a new hue and never white or near-white (the ground is pure white).
   </color_palette>
   <typography_direction>[TYPOGRAPHY DIRECTION]</typography_direction>
 </visual_territory>`;
+
+/** The four values glyph's `<business_type>` accepts, in glyph's own wording. */
+export const BUSINESS_TYPES = [
+  "B2C, sells to individuals",
+  "B2B, sells to companies",
+  "Non-profit / NGO",
+  "Personal brand",
+] as const;
 
 const GOOD_LOGO_PRINCIPLES_LOCKUP = `<good_logo_principles>
 - Lockup: graphic symbol + brand name in type — never symbol alone, never wordmark alone
