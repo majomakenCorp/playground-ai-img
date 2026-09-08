@@ -74,3 +74,46 @@ AGENTS.md §7 ("everything runs in Docker, no host-installed runtimes"):
 
 This exception is scoped to brief refinement. Do not invent additional
 host bind-mounts without an updated SDD section.
+
+### Documented exception — Vercel deployment (September 2026)
+
+The playground has a second deployment target beside the Compose stack in
+AGENTS.md §7: the Vercel project **`glyph-playground`** (team `molt-solutions`,
+`https://glyph-playground-swart.vercel.app`), deployed from this folder with the
+Vercel CLI (`vercel deploy --prod`), not from a Git integration. It exists so the
+team can test logo edit prompts without a local stack. Deviations, all
+deliberate:
+
+- **Storage is Cloudflare R2, never the filesystem.** The function filesystem is
+  read-only and ephemeral, so the four `R2_*` variables are required there.
+  `src/lib/storage/images.ts` is unchanged: it already prefers R2 when
+  configured.
+- **MongoDB is Atlas**, provisioned through the Vercel Marketplace integration
+  `mongodbatlas`, which injects `MONGODB_URI`. Keep a database name in the URI
+  path; Mongoose otherwise writes to `test`.
+- **`POST /api/edit` exports `maxDuration = 300`.** Worst case is 3 Gemini
+  attempts x 60 s plus backoff, ingest, two R2 writes and the history insert.
+- **The login rate limiter is per instance** (`src/lib/auth/rateLimit.ts` is an
+  in-memory `Map`), so on Vercel it is a backstop, not a guarantee. Acceptable
+  for a password-gated internal tool; do not present it as brute-force
+  protection.
+- **`CLAUDE_REFINE_ENABLED=false` there**: the host CLI bridge above cannot exist
+  on Vercel.
+- **Node is pinned to 22.x via `package.json` `engines`** so the Vercel build
+  matches `.nvmrc` and the Dockerfile.
+- **`.vercelignore` replaces `.gitignore` for CLI uploads**, so it lists the
+  build noise again plus `.claude/`, `.agents/` and `.env*`. Keep it in sync
+  when adding local-only folders.
+- Tests, typecheck and lint still run in Docker (`docker run --rm -v "$PWD":/app
+  -w /app node:22-bookworm-slim sh -c "npm test && npx tsc --noEmit && npx
+  eslint"`). The Vercel CLI on the host is deploy tooling only.
+
+Related feature: the `/edit` page and `POST /api/edit` (upload an existing logo
++ prompt, Gemini image-to-image). The provider lives in
+`src/lib/providers/gemini-image-edit.ts`, OUTSIDE the upstream boundary of
+AGENTS.md §6, and mirrors glyph's `src/lib/providers/edit/gemini-image-edit.ts`
+request shape: image first as `inlineData`, prompt second, `responseModalities:
+["IMAGE"]`, no `thinkingConfig`. The upload is re-encoded to PNG by
+`src/lib/logo-edit/ingest.ts` (SVG rejected on purpose) and stored as the
+`source` history variant under the same id as the result.
+

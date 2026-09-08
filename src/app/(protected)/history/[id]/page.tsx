@@ -58,6 +58,7 @@ export default async function HistoryDetailPage({
             mimeType={record.mimeType}
             transparentVariant={record.variants?.transparent ?? null}
             vectorVariant={record.variants?.vector ?? null}
+            sourceVariant={record.variants?.source ?? null}
             alreadySplit={(record.childIds?.length ?? 0) === 4}
           />
 

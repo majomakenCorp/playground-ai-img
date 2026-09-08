@@ -501,6 +501,27 @@ Image generation is I/O-bound (waiting on upstream APIs); a single `app` contain
 
 ---
 
+
+### 9.6 Vercel target (documented deviation, September 2026)
+
+The single-container, direct-to-production model above remains the reference
+architecture. A second target was added so the team can test logo edit prompts
+without a local stack: the Vercel project `glyph-playground` (team
+`molt-solutions`), deployed with the Vercel CLI from the repository folder.
+
+| Concern | Compose (reference) | Vercel (deviation) |
+|---|---|---|
+| Process model | one long-lived Node container | Fluid Compute functions, `maxDuration = 300` on `/api/edit` |
+| MongoDB | `mongo:7` sidecar on a private network | MongoDB Atlas via the `mongodbatlas` Marketplace integration (`MONGODB_URI`) |
+| Image storage | bind mount `./generate-images` (or R2) | Cloudflare R2 only (read-only, ephemeral filesystem) |
+| Claude CLI bridge | host bind mount, `CLAUDE_REFINE_ENABLED=true` | absent, `CLAUDE_REFINE_ENABLED=false` |
+| Login rate limit | in-memory, effective | in-memory per instance, backstop only |
+| TLS / `Secure` cookie | reverse proxy | platform (`NODE_ENV=production`) |
+| Node | 22 (`.nvmrc`, Dockerfile) | 22.x via `package.json` `engines` |
+
+The application code is identical; only environment differs. `.vercelignore`
+keeps `.claude/`, `.agents/`, `.env*`, tests and Docker files out of the upload.
+
 ## 10. Security Checklist
 
 - [x] Static password compared in constant time.

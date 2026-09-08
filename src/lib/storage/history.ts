@@ -8,11 +8,16 @@ export interface HistoryVariant {
   createdAt: string;
 }
 
-export type HistoryVariantKind = "transparent" | "vector";
+/**
+ * `source` is the normalized upload an edit started from (`<id>.source.png`),
+ * written together with the result under the same history id.
+ */
+export type HistoryVariantKind = "transparent" | "vector" | "source";
 
 export const VARIANT_KINDS: readonly HistoryVariantKind[] = [
   "transparent",
   "vector",
+  "source",
 ] as const;
 
 export type HistoryParentRole = "quadrant";
@@ -52,6 +57,8 @@ export interface InsertHistoryInput {
   parentRole?: HistoryParentRole | null;
   quadrantIndex?: number | null;
   durationMs: number;
+  /** Variants known at insert time (an edit's source); omit for `null`. */
+  variants?: Partial<Record<HistoryVariantKind, HistoryVariant>> | null;
 }
 
 export async function insertHistory(
@@ -73,6 +80,7 @@ export async function insertHistory(
     parentRole: input.parentRole ?? null,
     quadrantIndex: input.quadrantIndex ?? null,
     durationMs: input.durationMs,
+    variants: input.variants ?? null,
   });
   return toRecord(doc.toObject());
 }

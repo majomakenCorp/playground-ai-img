@@ -34,6 +34,7 @@ export function ImageVariants({
   mimeType,
   transparentVariant,
   vectorVariant,
+  sourceVariant = null,
   alreadySplit,
 }: {
   id: string;
@@ -42,6 +43,8 @@ export function ImageVariants({
   mimeType: string;
   transparentVariant: VariantInfo | null;
   vectorVariant: VariantInfo | null;
+  /** The normalized upload an edit started from; renders as "before". */
+  sourceVariant?: VariantInfo | null;
   alreadySplit: boolean;
 }) {
   const router = useRouter();
@@ -52,7 +55,9 @@ export function ImageVariants({
   const supportsBgStrip = BG_STRIP_MIMES.has(mimeType);
   const supportsSplit = RASTER_MIMES.has(mimeType);
   const supportsVectorize = RASTER_MIMES.has(mimeType);
-  const hasAnyVariant = Boolean(transparentVariant || vectorVariant);
+  const hasAnyVariant = Boolean(
+    transparentVariant || vectorVariant || sourceVariant,
+  );
 
   async function onStrip() {
     setError(null);
@@ -102,7 +107,10 @@ export function ImageVariants({
   }
 
   const panelCount =
-    1 + (transparentVariant ? 1 : 0) + (vectorVariant ? 1 : 0);
+    1 +
+    (sourceVariant ? 1 : 0) +
+    (transparentVariant ? 1 : 0) +
+    (vectorVariant ? 1 : 0);
   const gridCols =
     panelCount >= 3
       ? "md:grid-cols-3"
@@ -114,9 +122,18 @@ export function ImageVariants({
     <div className="flex flex-col gap-4">
       {hasAnyVariant ? (
         <div className={`grid gap-4 ${gridCols}`}>
+          {sourceVariant ? (
+            <VariantPanel
+              title="Source (before)"
+              label="Download source"
+              src={`/api/images/${id}?variant=source`}
+              alt={`${prompt} (source)`}
+              downloadName={sourceVariant.filename}
+            />
+          ) : null}
           <VariantPanel
-            title="Original"
-            label="Download original"
+            title={sourceVariant ? "Edited (after)" : "Original"}
+            label={sourceVariant ? "Download edited" : "Download original"}
             src={`/api/images/${id}`}
             alt={prompt}
             downloadName={imageFilename}

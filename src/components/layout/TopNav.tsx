@@ -8,6 +8,11 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
 const LINKS = [
   { href: "/", label: "History", match: (p: string) => p === "/" },
   {
+    href: "/edit",
+    label: "Edit logo",
+    match: (p: string) => p.startsWith("/edit"),
+  },
+  {
     href: "/demo",
     label: "Demo",
     match: (p: string) => p === "/demo",

@@ -1,0 +1,24 @@
+# Vercel CLI uploads: when this file exists it REPLACES .gitignore, so the
+# usual build noise has to be listed again alongside the deploy-only excludes.
+node_modules
+.next
+.git
+*.tsbuildinfo
+coverage
+
+# Never ship local secrets or agent configuration.
+.env*
+!.env.example
+.claude/
+.agents/
+skills-lock.json
+
+# Docker-only artefacts and dev tooling; Vercel builds with its own pipeline.
+generate-images/
+tests/
+vitest.config.ts
+docs/
+scripts/
+Dockerfile
+docker-compose.yml
+.dockerignore

@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  EDIT_ASPECT_RATIOS,
+  EDIT_IMAGE_SIZES,
+  EDIT_MODELS,
+} from "@/lib/logo-edit/options";
 
 export const LoginSchema = z.object({
   password: z.string().min(1).max(512),
@@ -19,6 +24,18 @@ export const GenerateSchema = z.object({
   systemPromptId: UuidV7Schema.optional(),
 });
 export type GenerateInput = z.infer<typeof GenerateSchema>;
+
+/**
+ * Text fields of the multipart `POST /api/edit` body. The image itself is
+ * validated by bytes in `src/lib/logo-edit/ingest.ts`, never by this schema.
+ */
+export const EditFieldsSchema = z.object({
+  prompt: z.string().trim().min(1).max(32000),
+  model: z.enum(EDIT_MODELS).optional(),
+  aspect_ratio: z.enum(EDIT_ASPECT_RATIOS).optional(),
+  image_size: z.enum(EDIT_IMAGE_SIZES).optional(),
+});
+export type EditFieldsInput = z.infer<typeof EditFieldsSchema>;
 
 export const HistoryQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(50),

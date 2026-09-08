@@ -229,6 +229,10 @@ Multi-stage `Dockerfile` (app) + `docker-compose.yml` (app + `mongo:7` sidecar) 
 
 ---
 
+**Vercel (second target, documented deviation):** the project `glyph-playground` runs the same code on Vercel with Atlas + R2 and no CLI bridge. See `CLAUDE.md` "Documented exception — Vercel deployment" and `ARQUITECTURE.md` §9.6 before changing storage, Mongo or auth assumptions.
+
+---
+
 ## 8. Security non-negotiables
 
 (Mirrors ARQUITECTURE.md §10 — keep both lists in sync.)
